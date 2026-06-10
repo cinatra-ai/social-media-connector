@@ -36,6 +36,16 @@ export interface SocialMediaSystemDeps {
     userId?: string;
     orgId?: string;
   }) => Promise<string>;
+
+  /**
+   * OPTIONAL (transport-registration cutover): lazy source of connectors that self-registered behind the
+   * `social-post` capability (a provider extension's serverEntry doing
+   * `ctx.capabilities.registerProvider("social-post", …)`). Forwarded to the
+   * registry's external resolver so BOTH read paths (get-by-id and listAll)
+   * merge capability providers — neither the facade nor the host imports a
+   * provider package, and a capability teardown is reflected immediately.
+   */
+  resolveConnectorProviders?: () => readonly SocialMediaConnector[];
 }
 
 // CROSS-COMPILATION SINGLETON: same hazard as socialMediaConnectorRegistry —
@@ -50,6 +60,9 @@ const _depsHolder = globalThis as unknown as DepsHolder;
 
 export function configureSocialMediaSystem(deps: SocialMediaSystemDeps): void {
   _depsHolder[SOCIAL_MEDIA_SYSTEM_DEPS_KEY] = deps;
+  // Forward the optional capability-provider resolver to the registry so both
+  // read paths merge capability-registered connectors lazily (blog model).
+  socialMediaConnectorRegistry.setExternalResolver(deps.resolveConnectorProviders ?? null);
 }
 
 function getDeps(): SocialMediaSystemDeps {
