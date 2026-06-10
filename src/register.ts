@@ -26,11 +26,16 @@ function isSocialMediaConnector(impl: unknown): impl is SocialMediaConnector {
   const candidate = impl as {
     definition?: { connectorId?: unknown; name?: unknown };
     publish?: unknown;
+    getStatus?: unknown;
   };
   return (
     typeof candidate.definition?.connectorId === "string" &&
     typeof candidate.definition?.name === "string" &&
-    typeof candidate.publish === "function"
+    typeof candidate.publish === "function" &&
+    // getStatus is REQUIRED by the contract and called unconditionally by the
+    // facade's status read (getSocialMediaConnectorStatusThroughSystem) — a
+    // provider without it must never pass the guard.
+    typeof candidate.getStatus === "function"
   );
 }
 
