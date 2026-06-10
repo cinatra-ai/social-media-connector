@@ -26,6 +26,12 @@ import type { SocialMediaConnector } from "./contract";
 
 class SocialMediaConnectorRegistryImpl {
   private entries: Map<string, SocialMediaConnector> = new Map();
+  // Lazy EXTERNAL provider source (transport-registration cutover): connectors that self-registered
+  // behind the `social-post` capability surface here without this facade (or
+  // the host) importing any provider package. Pulled on EVERY read so a
+  // capability teardown is reflected immediately and activation order never
+  // matters. Direct registrations win over external ones with the same id.
+  private externalResolver: (() => readonly SocialMediaConnector[]) | null = null;
 
   register(connector: SocialMediaConnector): void {
     const id = connector.definition.connectorId;
@@ -37,28 +43,51 @@ class SocialMediaConnectorRegistryImpl {
     this.entries.set(id, connector);
   }
 
+  setExternalResolver(resolver: (() => readonly SocialMediaConnector[]) | null): void {
+    this.externalResolver = resolver;
+  }
+
+  private externalProviders(): readonly SocialMediaConnector[] {
+    if (!this.externalResolver) return [];
+    try {
+      return this.externalResolver();
+    } catch {
+      // A broken external resolver must never take down direct registrations.
+      return [];
+    }
+  }
+
   get(id: string): SocialMediaConnector | null {
-    return this.entries.get(id) ?? null;
+    const direct = this.entries.get(id);
+    if (direct) return direct;
+    return (
+      this.externalProviders().find((c) => c.definition.connectorId === id) ?? null
+    );
   }
 
   listAll(): readonly SocialMediaConnector[] {
-    return Array.from(this.entries.values());
+    const out = new Map<string, SocialMediaConnector>();
+    for (const c of this.externalProviders()) out.set(c.definition.connectorId, c);
+    // Direct registrations override external ones with the same id.
+    for (const [id, c] of this.entries) out.set(id, c);
+    return Array.from(out.values());
   }
 
   size(): number {
-    return this.entries.size;
+    return this.listAll().length;
   }
 
   /** @internal Only for tests. */
   _clearForTests(): void {
     this.entries.clear();
+    this.externalResolver = null;
   }
 }
 
 // Anchor on globalThis so every Next.js compilation in the same Node process
 // shares one registry instance (see the CROSS-COMPILATION note above).
 const SOCIAL_MEDIA_CONNECTOR_REGISTRY_KEY = Symbol.for(
-  "@cinatra-ai/social-media-connector:registry/v1",
+  "@cinatra-ai/social-media-connector:registry/v2",
 );
 type RegistryHolder = { [k: symbol]: SocialMediaConnectorRegistryImpl | undefined };
 const _globalHolder = globalThis as unknown as RegistryHolder;
