@@ -85,6 +85,20 @@ export function register(ctx: ExtensionHostContext): void {
         .filter(isSocialMediaConnector),
   });
 
+  // Lazy/guarded host-access cutover: the host's blog/LinkedIn publish path
+  // (src/lib/blog/generation.ts) resolves the publish facade through the
+  // capability registry instead of value-importing this package. Provider
+  // absence degrades that pipeline step with a descriptive error.
+  ctx.capabilities.registerProvider("social-media-system", {
+    packageName: "@cinatra-ai/social-media-connector",
+    impl: {
+      publishPost: (
+        post: Parameters<typeof publishSocialMediaPostThroughSystem>[0],
+        opts: Parameters<typeof publishSocialMediaPostThroughSystem>[1],
+      ) => publishSocialMediaPostThroughSystem(post, opts),
+    },
+  });
+
   ctx.mcp.registerTool({
     name: "social_media_publish",
     description:
