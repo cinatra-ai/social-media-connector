@@ -35,6 +35,11 @@
   "cinatra": {
     "apiVersion": "cinatra.ai/v1",
     "kind": "connector",
+    "vendor": {
+      "key": "cinatra-ai",
+      "name": "Cinatra"
+    },
+    "displayName": "Social Media",
     "dependencies": [],
     "serverEntry": "./register",
     "requestedHostPorts": [
