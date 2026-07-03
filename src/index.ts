@@ -42,4 +42,4 @@ export {
   getSocialMediaConnectorStatusThroughSystem,
 } from "./facade";
 
-export type { SocialMediaSystemDeps } from "./facade";
+export type { SocialMediaSystemDeps, SocialMediaProviderCallContext } from "./facade";
