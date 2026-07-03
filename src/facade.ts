@@ -77,6 +77,42 @@ function getDeps(): SocialMediaSystemDeps {
   return _deps;
 }
 
+/**
+ * The per-call actor/scope context the facade forwards VERBATIM to the
+ * resolved provider (`provider.publish` / `provider.getStatus`).
+ *
+ * Fail-closed threading (cinatra-ai/cinatra#954): forwarding only `userId`
+ * pinned every delegated provider lookup to personal scope — the org context
+ * the caller had already resolved was dropped between the routing chain and
+ * the provider call. The facade now forwards the FULL context the caller
+ * genuinely resolved, and ONLY that: a key the caller did not resolve is
+ * ABSENT, never defaulted or invented here. Callers resolve `userId` +
+ * `orgId` today (the MCP handler resolves both from the trusted actor);
+ * further scope fields (team/project) extend this shape when a caller
+ * genuinely resolves them.
+ *
+ * NOTE: the SDK provider contract types `opts` as `{ userId?: string }`
+ * today; forwarding this wider context is plain width-subtyping (extra
+ * properties reach providers at runtime so an org-scope-aware provider can
+ * consume them). Widening the contract type itself rides the provider-side
+ * org-scope work in the SDK.
+ */
+export type SocialMediaProviderCallContext = {
+  userId?: string;
+  orgId?: string;
+};
+
+/** Build the provider call context from caller opts — resolved keys only. */
+function toProviderCallContext(opts?: {
+  userId?: string;
+  orgId?: string;
+}): SocialMediaProviderCallContext {
+  const context: SocialMediaProviderCallContext = {};
+  if (opts?.userId !== undefined) context.userId = opts.userId;
+  if (opts?.orgId !== undefined) context.orgId = opts.orgId;
+  return context;
+}
+
 function getProvider(id: string): SocialMediaConnector {
   const connector = socialMediaConnectorRegistry.get(id);
   if (!connector) {
@@ -113,7 +149,7 @@ export async function publishSocialMediaPostThroughSystem(
     orgId: opts?.orgId,
   });
   const connector = getProvider(connectorId);
-  return connector.publish(post, { userId: opts?.userId });
+  return connector.publish(post, toProviderCallContext(opts));
 }
 
 /**
@@ -131,5 +167,5 @@ export async function getSocialMediaConnectorStatusThroughSystem(opts?: {
     orgId: opts?.orgId,
   });
   const connector = getProvider(connectorId);
-  return connector.getStatus({ userId: opts?.userId });
+  return connector.getStatus(toProviderCallContext(opts));
 }
