@@ -41,6 +41,7 @@
       "name": "Cinatra"
     },
     "displayName": "Social Media",
+    "logo": "./cinatra/logo.svg",
     "dependencies": [],
     "serverEntry": "./register",
     "requestedHostPorts": [
