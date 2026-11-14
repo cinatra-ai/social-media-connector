@@ -73,6 +73,14 @@ const socialMediaPublishInputSchema = z.object({
 const nonEmpty = (v: unknown): string | undefined =>
   typeof v === "string" && v.trim().length > 0 ? v : undefined;
 
+// cinatra#3745: `social_media_publish` publishes on a person's behalf, so its
+// registration declares `outward`: the host holds each call of it during an
+// agent run for the person's recorded decision. It takes free text and no
+// stored item, so it names no subject. A declaration only adds a hold; it never
+// authorizes a call. A host that does not read the field ignores it. Spread
+// from a constant so an SDK config type without the field still accepts it.
+const SOCIAL_MEDIA_PUBLISH_OUTWARD = { outward: {} };
+
 export function register(ctx: ExtensionHostContext): void {
   configureSocialMediaSystem({
     resolveConnectorId,
@@ -107,6 +115,7 @@ export function register(ctx: ExtensionHostContext): void {
       "over the social-post capability — works with LinkedIn today and any future " +
       "provider (Twitter/X, Threads, etc.) the operator registers.",
     inputSchema: socialMediaPublishInputSchema,
+    ...SOCIAL_MEDIA_PUBLISH_OUTWARD,
     handler: async (rawInput) => {
       const input = socialMediaPublishInputSchema.parse(rawInput);
       const actor = await ctx.authSession.getActor();
